@@ -6,11 +6,8 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import org.testng.asserts.SoftAssert;
-import utils.UserUtils;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class UserTests {
     UserUtils userUtils=new UserUtils();
