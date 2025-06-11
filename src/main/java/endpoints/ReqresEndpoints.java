@@ -13,6 +13,4 @@ public class ReqresEndpoints {
     public static final String REGISTER = "/register";
     public static final String LOGIN = "/login";
 
-    // Delayed response
-    public static final String DELAYED_RESPONSE = "/users?delay={delay}";
 }

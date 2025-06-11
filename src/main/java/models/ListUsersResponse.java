@@ -8,7 +8,7 @@ public class ListUsersResponse {
     private Integer total;
     private Integer total_pages;
     private List<UserDataResponse> data;
-    private List<Support> support;
+    private Support support;
 
     public Integer getPage() {
         return page;
@@ -40,10 +40,10 @@ public class ListUsersResponse {
     public void setData(List<UserDataResponse> data) {
         this.data = data;
     }
-    public List<Support> getSupport() {
+    public Support getSupport() {
         return support;
     }
-    public void setSupport(List<Support> support) {
+    public void setSupport(Support support) {
         this.support = support;
     }
 }

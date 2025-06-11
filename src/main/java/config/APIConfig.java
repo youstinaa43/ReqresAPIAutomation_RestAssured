@@ -1,7 +1,6 @@
 package config;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties;
 
@@ -12,8 +11,10 @@ public class APIConfig {
         FileInputStream input=new FileInputStream("F:\\Java\\Projects\\Reqres_RestAssured\\src\\main\\resources\\config.properties");
         properties.load(input);
     }
-    public static String getBaseURL(){
-        return properties.getProperty("base.url");
+    public static String getBaseURL() throws IOException {
+        readFromAPIProperty();
+        String url= properties.getProperty("base.url");
+        return url;
     }
     public static int getMaxRetryCount(){
         return Integer.parseInt(properties.getProperty("max.retry.count"));

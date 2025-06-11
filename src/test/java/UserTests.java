@@ -1,75 +1,138 @@
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
-import io.restassured.path.json.JsonPath;
+import endpoints.UserEndpoints;
 import io.restassured.response.Response;
+import models.*;
 import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import org.testng.asserts.SoftAssert;
+import utils.PropertyUtils;
 
+import java.io.IOException;
 import java.util.List;
 
 public class UserTests {
-    UserUtils userUtils=new UserUtils();
-
-
-    String token;
-
-    @BeforeClass
-    public void login(){
-        Response response=
-        JsonPath jsonPath =response.jsonPath();
-        token=jsonPath.get("token");
-
+    @Test
+    public void getSingleUser() throws IOException {
+        SoftAssert softAssert=new SoftAssert();
+        int userNo=Integer.parseInt(PropertyUtils.get("userNo"));
+        Response response= UserEndpoints.getUser(userNo);
+        SingleUserResponse result=response.as(SingleUserResponse.class);
+        UserDataResponse data= result.getData();
+        Assert.assertEquals(data.getId(),userNo,"user No is not the same");
+        softAssert.assertNotNull(data.getEmail(),"email is null");
+        softAssert.assertNotNull(data.getFirst_name(),"name is null");
+        softAssert.assertEquals(data.getFirst_name(),PropertyUtils.get("firstName"));
+        softAssert.assertEquals(data.getLast_name(),PropertyUtils.get("lastName"));
+        softAssert.assertTrue(data.getEmail().matches(PropertyUtils.get("emailRegex")));
+        softAssert.assertTrue((data.getAvatar().matches(PropertyUtils.get("avatarRegex"))));
+        Support support= result.getSupport();
+        softAssert.assertEquals(support.getText(),PropertyUtils.get("supportText"));
+        softAssert.assertEquals(support.getUrl(),PropertyUtils.get("supportUrl"));
+        softAssert.assertAll();
     }
     @Test
-    public void getSingleUser(){
+    public void getWrongUser() throws IOException {
+        int userNo=Integer.parseInt(PropertyUtils.get("wrongUserNo"));
+        Response response= UserEndpoints.getUserNotFound(userNo);
+        Assert.assertEquals(response.statusCode(),404);
+    }
+
+    @Test
+    public void getListOfUsers() throws IOException {
         SoftAssert softAssert=new SoftAssert();
-        String expectedID="2";
-        Response response=RestAssured.given().when().headers(headers).get(baseURL+usersEndPoint+"/2").then().extract().response();
-        JsonPath jsonPath=response.jsonPath();
-        int actualID=jsonPath.get("data.id");
-        Assert.assertEquals(response.statusCode(),200,"Status code is not correct");
-        Assert.assertEquals(String.valueOf(actualID),expectedID,"ID is not the same");
-        softAssert.assertNotNull(jsonPath.get("data.email"),"email is null");
-        softAssert.assertNotNull(jsonPath.get("data.first_name"),"name is null");
-        softAssert.assertTrue((jsonPath.getString("data.email")).matches("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$"));
-        softAssert.assertTrue((jsonPath.getString("data.avatar")).matches("^https:\\/\\/reqres.in\\/img\\/faces\\/\\d+-image\\.jpg$"));
+        Response response= UserEndpoints.getUsers(Integer.parseInt(PropertyUtils.get("pageNo")));
+        ListUsersResponse result=response.as(ListUsersResponse.class);
+        List<UserDataResponse> data =result.getData();
+        Assert.assertEquals(data.get(0).getId(),7);
+        int firstID=data.get(0).getId();
+        int lastID=data.get(5).getId();
+        int numberOfUsers=lastID-firstID+1;
+        int perPage=result.getPer_page();
+        softAssert.assertEquals(perPage,numberOfUsers);
+        softAssert.assertEquals(data.size(),perPage);
+        int pageNo=lastID/perPage;
+        softAssert.assertEquals(pageNo,Integer.parseInt(PropertyUtils.get("pageNo")));
+        Assert.assertEquals(result.getTotal_pages(),2);
+        for(UserDataResponse user:data){
+            softAssert.assertTrue(user.getEmail().matches(PropertyUtils.get("emailRegex")));
+            softAssert.assertTrue((user.getAvatar().matches(PropertyUtils.get("avatarRegex"))));
+        }
+        Support support= result.getSupport();
+        softAssert.assertEquals(support.getText(),PropertyUtils.get("supportText"));
+        softAssert.assertEquals(support.getUrl(),PropertyUtils.get("supportUrl"));
         softAssert.assertAll();
     }
 
     @Test
-    public void getListOfUsers(){
-        Response response= userUtils.getListUsers("2");
-        JsonPath jsonPath=response.jsonPath();
-        List<String> data =jsonPath.getList("data");
-        int actualDataSize=data.size();
-        Assert.assertEquals(response.statusCode(),200);
+    public void createNewUser() throws IOException {
+        UserData userData=new UserData();
+        userData.setName(PropertyUtils.get("newUserName"));
+        userData.setJob(PropertyUtils.get("job"));
+        Response response= UserEndpoints.createUser(userData);
+        UserOperationResponse result=response.as(UserOperationResponse.class);
+        Assert.assertEquals(result.getName(),PropertyUtils.get("newUserName"));
+        Assert.assertEquals(result.getJob(),PropertyUtils.get("job"));
+        Assert.assertNotNull(result.getId());
+        Assert.assertTrue(result.getCreatedAt().matches(PropertyUtils.get("createdAtRegex")));
 
-        Assert.assertEquals(jsonPath.getInt("data[0].id"),7);
-        int firstID=jsonPath.getInt("data[0].id");
-        int lastID=jsonPath.getInt("data[5].id");
-        int numberOfUsers=lastID-firstID+1;
-        int perPage=jsonPath.getInt("per_page");
-        Assert.assertEquals(perPage,numberOfUsers);
-        int pageNo=lastID/perPage;
-        Assert.assertEquals(jsonPath.getInt("page"),2);
     }
-    static String newUserName="morpheus";
-    static String job="leader";
+
     @Test
-    public void createNewUser(){
-        Response response= RestAssured.given().when().contentType(ContentType.JSON).body("{\n" +
-                "    \"name\": \""+newUserName+"\",\n" +
-                "    \"job\": \""+job+"\"\n" +
-                "}").post(baseURL+usersEndPoint).then().extract().response();
-        JsonPath jsonPath=response.jsonPath();
-        Assert.assertEquals(response.statusCode(),201);
-        Assert.assertEquals(jsonPath.get("name"),newUserName);
-        Assert.assertEquals(jsonPath.get("job"),job);
-        Assert.assertNotNull(jsonPath.get("id"));
-        SoftAssert softAssert=new SoftAssert();
-        softAssert.assertTrue((jsonPath.getString("createdAt")).matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$\n"));
+    public void upDateUser() throws IOException {
+        UserData userData=new UserData();
+        userData.setName(PropertyUtils.get("nameU"));
+        userData.setJob(PropertyUtils.get("jobU"));
+        Response response= UserEndpoints.updateUser(userData,Integer.parseInt(PropertyUtils.get("userNo")));
+        UserOperationResponse result=response.as(UserOperationResponse.class);
+        Assert.assertEquals(result.getName(),PropertyUtils.get("nameU"));
+        Assert.assertEquals(result.getJob(),PropertyUtils.get("jobU"));
+        Assert.assertTrue(result.getUpdatedAt().matches(PropertyUtils.get("updateAtRegex")));
 
     }
+
+    @Test
+    public void updateUserUsingPatch() throws IOException {
+        UserData userData=new UserData();
+        userData.setName(PropertyUtils.get("nameU"));
+        userData.setJob(PropertyUtils.get("jobU"));
+        Response response= UserEndpoints.patchUser(userData,Integer.parseInt(PropertyUtils.get("userNo")));
+        UserOperationResponse result=response.as(UserOperationResponse.class);
+        Assert.assertEquals(result.getName(),PropertyUtils.get("nameU"));
+        Assert.assertEquals(result.getJob(),PropertyUtils.get("jobU"));
+        Assert.assertTrue(result.getUpdatedAt().matches(PropertyUtils.get("updateAtRegex")));
+    }
+
+    @Test
+    public void delete_User() throws IOException {
+        Response response= UserEndpoints.deleteUser(Integer.parseInt(PropertyUtils.get("userNo")));
+        Assert.assertEquals(response.statusCode(),204);
+    }
+
+    @Test
+    public void getListOfUsersDelay() throws IOException {
+        SoftAssert softAssert=new SoftAssert();
+        Response response= UserEndpoints.delayResponse(Integer.parseInt(PropertyUtils.get("delay")));
+        ListUsersResponse result=response.as(ListUsersResponse.class);
+        List<UserDataResponse> data =result.getData();
+        Assert.assertEquals(data.get(0).getId(),1);
+        int firstID=data.get(0).getId();
+        int lastID=data.get(5).getId();
+        int numberOfUsers=lastID-firstID+1;
+        int perPage=result.getPer_page();
+        softAssert.assertEquals(perPage,numberOfUsers);
+        softAssert.assertEquals(data.size(),perPage);
+        int pageNo=lastID/perPage;
+        softAssert.assertEquals(pageNo,1);
+        Assert.assertEquals(result.getTotal_pages(),2);
+        for(UserDataResponse user:data){
+            softAssert.assertTrue(user.getEmail().matches(PropertyUtils.get("emailRegex")));
+            softAssert.assertTrue((user.getAvatar().matches(PropertyUtils.get("avatarRegex"))));
+        }
+        Support support= result.getSupport();
+        softAssert.assertEquals(support.getText(),PropertyUtils.get("supportText"));
+        softAssert.assertEquals(support.getUrl(),PropertyUtils.get("supportUrl"));
+        softAssert.assertAll();
+    }
+
+
+
 }
